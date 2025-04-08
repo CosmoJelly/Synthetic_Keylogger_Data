@@ -4,9 +4,9 @@ import csv
 
 def generate_keystroke_data(text, condition, wpm, session_length=None, simulate_real_time=False):
     typing_conditions = {
-        "normal": {"base_noise": 0.07},
-        "high_load": {"base_noise": 0.16},
-        "fatigue": {"base_noise": 0.34}
+        "normal": {"base_noise": 0.07, "typo_rate": 0.05},
+        "high_load": {"base_noise": 0.16, "typo_rate": 0.15},
+        "fatigue": {"base_noise": 0.34, "typo_rate": 0.30}
     }
 
     if condition not in typing_conditions:
@@ -23,10 +23,12 @@ def generate_keystroke_data(text, condition, wpm, session_length=None, simulate_
     current_time = 0
     i = 0
 
+    typo_rate = typing_conditions[condition]["typo_rate"]
+
     while i < session_length:
         char = text[i % len(text)]
 
-        # Detect uppercase sequence
+        # Detect uppercase sequence and handle Caps Lock
         if char.isupper():
             seq_start = i
             seq_len = 0
@@ -51,12 +53,23 @@ def generate_keystroke_data(text, condition, wpm, session_length=None, simulate_
         noise = random.gauss(0, typing_conditions[condition]["base_noise"])
         delay = max(0.01, base_delay + noise)
 
-        keystroke_data.append([char, current_time, key_down_time, key_hold_time, key_up_time])
+        # Introduce typo based on the current condition
+        if random.random() < typo_rate:  # Typo occurs based on condition's rate
+            typed_char = random.choice("abcdefghijklmnopqrstuvwxyz")  # Random incorrect char
+            if typed_char != char:  # If typo occurs
+                keystroke_data.append([typed_char, current_time, 0.01, 0.1, 0.01])  # Typing wrong character
+                current_time += random.uniform(0.01, 0.03)
+                keystroke_data.append(["BACKSPACE", current_time, 0.02, 0.05, 0.01])  # Backspace event
+                current_time += 0.05  # Add time for backspace
+                keystroke_data.append([char, current_time, 0.01, 0.1, 0.01])  # Correct character typed
+        else:
+            keystroke_data.append([char, current_time, key_down_time, key_hold_time, key_up_time])
 
-        # Random backspace
-        if random.random() < 0.05:
+        # Random backspace handling (but only after a typo)
+        if random.random() < 0.05 and typed_char != char:
             keystroke_data.append(["BACKSPACE", current_time + 0.01, 0.02, 0.05, 0.01])
 
+        # Shift handling (if caps lock is not on)
         if char.isupper() and seq_len < 2 and not caps_lock_active:
             keystroke_data.append(["SHIFT_UP", current_time + 0.02, 0.01, 0.01, 0.01])
 
@@ -84,7 +97,7 @@ except ValueError:
     print("Invalid WPM entered. Using default of 50.")
     wpm = 50.0
 
-# Noise addition to create remove artifical feeling from values
+# Noise addition to create remove artificial feeling from values
 def add_jitter_and_format(val):
     if isinstance(val, (float, int)):
         jitter = random.uniform(-0.003, 0.003)
