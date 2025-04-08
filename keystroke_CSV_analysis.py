@@ -1,6 +1,8 @@
 import csv
 import statistics
 import matplotlib.pyplot as plt
+import sys
+from contextlib import redirect_stdout
 
 def analyze_keystroke_csv(file_path):
     timestamps = []
@@ -73,7 +75,7 @@ def analyze_keystroke_csv(file_path):
     axs[0, 1].set_ylabel("Frequency")
     axs[0, 1].grid(True)
 
-# WPM over time (with valid intervals)
+    # WPM over time (with valid intervals)
     time_intervals = [timestamps[i] - timestamps[0] for i in range(len(timestamps))]
     valid_wpm_values = []
     valid_time_intervals = []
@@ -83,6 +85,9 @@ def analyze_keystroke_csv(file_path):
             wpm = (i) / (time_intervals[i] / 60)
             valid_wpm_values.append(wpm)
             valid_time_intervals.append(time_intervals[i])
+
+    for i in range(len(valid_wpm_values)):
+        valid_wpm_values[i] = valid_wpm_values[i] / 5
 
     # Plot WPM values over time with valid intervals
     axs[1, 0].plot(valid_time_intervals, valid_wpm_values, color='blue')
@@ -103,5 +108,10 @@ def analyze_keystroke_csv(file_path):
     plt.show()
 
 if __name__ == "__main__":
-    file_path = input("Enter path to synthetic keystroke CSV: ")
-    analyze_keystroke_csv(file_path)
+    file_path = "keystroke_data.csv"
+
+    # Redirect output to both terminal and file
+    with open("adv_info.txt", "w") as f:
+        with redirect_stdout(f):
+            analyze_keystroke_csv(file_path)
+    print("Analysis complete. Results saved to adv_info.txt.")
