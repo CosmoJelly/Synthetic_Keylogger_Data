@@ -1,0 +1,9 @@
+
+--- Keystroke Data Analysis ---
+Total Keystrokes: 8770
+Typing Duration: 2693.47 seconds
+Average Delay Between Keystrokes: 0.3072 s
+Average Key Hold Time: 0.1102 s
+Average Key Down Time: 0.0516 s
+Average Key Up Time: 0.0497 s
+Estimated Typing Speed: 39.07 WPM
