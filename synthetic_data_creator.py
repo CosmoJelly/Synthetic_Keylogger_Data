@@ -4,7 +4,7 @@ import csv
 
 def generate_keystroke_data(text, condition, wpm, session_length=None, simulate_real_time=False):
     typing_conditions = {
-        "normal": {"base_noise": 0.2, "typo_rate": 0.05},
+        "normal": {"base_noise": 0.24, "typo_rate": 0.05},
         "high_load": {"base_noise": 0.45, "typo_rate": 0.15},
         "fatigue": {"base_noise": 0.69, "typo_rate": 0.30}
     }
