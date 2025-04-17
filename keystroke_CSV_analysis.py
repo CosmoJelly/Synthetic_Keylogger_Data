@@ -1,117 +1,59 @@
-import csv
-import statistics
+import pandas as pd
 import matplotlib.pyplot as plt
-import sys
-from contextlib import redirect_stdout
+import seaborn as sns
 
-def analyze_keystroke_csv(file_path):
-    timestamps = []
-    hold_times = []
-    down_times = []
-    up_times = []
-    backspace_times = []
+# Load CSV file
+df = pd.read_csv("keystroke_data.csv")
 
-    with open(file_path, 'r') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            try:
-                key = row['Key']
-                timestamp = float(row['Timestamp (s)'])
-                key_down = float(row['Key_Down_Time'])
-                key_hold = float(row['Key_Hold_Time'])
-                key_up = float(row['Key_Up_Time'])
+# Set style
+sns.set(style="whitegrid")
 
-                # Ignore SHIFT, CAPSLOCK, BACKSPACE for speed stats
-                if key not in ["SHIFT_DOWN", "SHIFT_UP", "CAPS_LOCK_ON", "CAPS_LOCK_OFF"]:
-                    timestamps.append(timestamp)
-                    hold_times.append(key_hold)
-                    down_times.append(key_down)
-                    up_times.append(key_up)
+# Filter out special keys
+filtered_keys = df[~df['Key'].str.contains("SHIFT|CTRL|ALT|TAB|ENTER|CAPS", case=False, na=False)]
 
-                # Track backspace occurrences
-                if key == "BACKSPACE":
-                    backspace_times.append(timestamp)
+# Compute error stats
+total_keystrokes = len(filtered_keys[~filtered_keys['Key'].str.contains("BACKSPACE", case=False)])
+backspaces = len(filtered_keys[filtered_keys['Key'].str.contains("BACKSPACE", case=False)])
+error_rate = (backspaces / total_keystrokes) * 100 if total_keystrokes > 0 else 0
 
-            except ValueError:
-                continue
+# Group average hold time per key
+key_avg_durations = filtered_keys.groupby("Key")["Key_Hold_Time"].mean().sort_values(ascending=False)
+heatmap_data = pd.DataFrame(key_avg_durations)
 
-    if len(timestamps) < 2:
-        print("Not enough data points.")
-        return
+# Set up subplots
+fig, axs = plt.subplots(2, 2, figsize=(20, 14))
+fig.suptitle("Keystroke Dynamics Visualizations", fontsize=22)
 
-    # Calculate delays
-    delays = [round(timestamps[i] - timestamps[i - 1], 4) for i in range(1, len(timestamps))]
+# 1. Heatmap of Key Press Durations
+sns.heatmap(heatmap_data.T, cmap="YlGnBu", ax=axs[0, 0], cbar_kws={'label': 'Avg Hold Time (s)'})
+axs[0, 0].set_title("Heatmap of Average Key Hold Durations", fontsize=14)
+axs[0, 0].set_xlabel("Key", fontsize=12)
+axs[0, 0].set_ylabel("")
+axs[0, 0].tick_params(axis='x', rotation=90)
 
-    # Basic stats
-    print("\n--- Keystroke Data Analysis ---")
-    print(f"Total Keystrokes: {len(timestamps)}")
-    print(f"Typing Duration: {timestamps[-1]:.2f} seconds")
-    print(f"Average Delay Between Keystrokes: {statistics.mean(delays):.4f} s")
-    print(f"Average Key Hold Time: {statistics.mean(hold_times):.4f} s")
-    print(f"Average Key Down Time: {statistics.mean(down_times):.4f} s")
-    print(f"Average Key Up Time: {statistics.mean(up_times):.4f} s")
+# 2. Distribution of Hold Times
+sns.histplot(df["Key_Hold_Time"], bins=40, kde=True, ax=axs[0, 1], color="skyblue")
+axs[0, 1].set_title("Distribution of Key Hold Times", fontsize=14)
+axs[0, 1].set_xlabel("Hold Time (s)", fontsize=12)
+axs[0, 1].set_ylabel("Frequency")
+axs[0, 1].set_yscale("log")
 
-    # Approximate WPM
-    chars = len(timestamps)
-    words = chars / 5
-    duration_minutes = timestamps[-1] / 60
-    estimated_wpm = words / duration_minutes
-    print(f"Estimated Typing Speed: {estimated_wpm:.2f} WPM")
+# 3. Hold Time vs Down Time Scatter
+sns.scatterplot(data=df, x="Key_Down_Time", y="Key_Hold_Time", alpha=0.4, ax=axs[1, 0], s=30)
+axs[1, 0].set_title("Hold Time vs Down Time", fontsize=14)
+axs[1, 0].set_xlabel("Key Down Time (s)", fontsize=12)
+axs[1, 0].set_ylabel("Key Hold Time (s)")
+axs[1, 0].grid(True)
 
-    # Create a single window with multiple subplots
-    fig, axs = plt.subplots(2, 2, figsize=(12, 8))
+# 4. Donut chart for Typing Error Rate
+labels = ['Correct Keystrokes', 'Backspaces']
+sizes = [total_keystrokes, backspaces]
+colors = ['#4CAF50', '#F44336']  # Green for correct, red for errors
 
-    # Keystroke delay distribution
-    axs[0, 0].hist(delays, bins=20, color='purple', edgecolor='black')
-    axs[0, 0].set_title("Keystroke Delay Distribution")
-    axs[0, 0].set_xlabel("Delay (s)")
-    axs[0, 0].set_ylabel("Frequency")
-    axs[0, 0].grid(True)
+axs[1, 1].pie(sizes, labels=labels, colors=colors, startangle=90, autopct='%1.1f%%', wedgeprops={'width':0.4})
+axs[1, 1].set_title("Typing Error Rate (Backspace Usage)", fontsize=14)
 
-    # Backspace occurrences
-    axs[0, 1].hist(backspace_times, bins=20, color='red', edgecolor='black')
-    axs[0, 1].set_title("Backspace Occurrences")
-    axs[0, 1].set_xlabel("Timestamp (s)")
-    axs[0, 1].set_ylabel("Frequency")
-    axs[0, 1].grid(True)
-
-    # WPM over time (with valid intervals)
-    time_intervals = [timestamps[i] - timestamps[0] for i in range(len(timestamps))]
-    valid_wpm_values = []
-    valid_time_intervals = []
-
-    for i in range(1, len(timestamps)):  # Start from 1 to avoid division by zero
-        if time_intervals[i] > 0:
-            wpm = (i) / (time_intervals[i] / 60)
-            valid_wpm_values.append(wpm)
-            valid_time_intervals.append(time_intervals[i])
-
-    for i in range(len(valid_wpm_values)):
-        valid_wpm_values[i] = valid_wpm_values[i] / 5
-
-    # Plot WPM values over time with valid intervals
-    axs[1, 0].plot(valid_time_intervals, valid_wpm_values, color='blue')
-    axs[1, 0].set_title("Typing Speed (WPM) Over Time")
-    axs[1, 0].set_xlabel("Time (s)")
-    axs[1, 0].set_ylabel("WPM")
-    axs[1, 0].grid(True)
-
-    # Key Hold Time Distribution
-    axs[1, 1].hist(hold_times, bins=20, color='green', edgecolor='black')
-    axs[1, 1].set_title("Key Hold Time Distribution")
-    axs[1, 1].set_xlabel("Key Hold Time (s)")
-    axs[1, 1].set_ylabel("Frequency")
-    axs[1, 1].grid(True)
-
-    # Adjust layout to prevent overlap
-    plt.tight_layout()
-    plt.show()
-
-if __name__ == "__main__":
-    file_path = "keystroke_data.csv"
-
-    # Redirect output to both terminal and file
-    with open("adv_info.txt", "w") as f:
-        with redirect_stdout(f):
-            analyze_keystroke_csv(file_path)
-    print("Analysis complete. Results saved to adv_info.txt.")
+# Layout fix
+plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+plt.subplots_adjust(wspace=0.105, hspace=0.27)
+plt.show()
