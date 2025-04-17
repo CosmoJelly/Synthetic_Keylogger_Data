@@ -28,7 +28,7 @@ def generate_keystroke_data(text, condition, wpm, session_length=None, simulate_
         char = text[i % len(text)]
         is_upper = char.isupper()
 
-        # Handle Caps Lock logic
+        # Caps Lock logic
         if is_upper:
             seq_start = i
             seq_len = 0
@@ -48,7 +48,7 @@ def generate_keystroke_data(text, condition, wpm, session_length=None, simulate_
         key_hold_time = random.uniform(0.09, 0.2)
         key_up_time = random.uniform(0.08, 0.12)
 
-        # Micro human-like pauses based on content
+        # Micro-pauses
         if char in ",.;:":
             delay_multiplier = random.uniform(1.2, 1.5)
         elif char in "!?":
@@ -74,7 +74,7 @@ def generate_keystroke_data(text, condition, wpm, session_length=None, simulate_
         else:
             keystroke_data.append([char, current_time, key_down_time, key_hold_time, key_up_time])
 
-        # Random BACKSPACE noise (non-typo)
+        # Random non-typo BACKSPACE noise
         if random.random() < 0.01:
             keystroke_data.append(["BACKSPACE", current_time + 0.01, 0.02, 0.05, 0.01])
 
@@ -104,7 +104,7 @@ except ValueError:
     print("Invalid WPM entered. Using default of 50.")
     wpm = 50.0
 
-# Noise addition to create remove artificial feeling from values
+# Random noise addition to remove artificial feeling
 def add_jitter_and_format(val):
     if isinstance(val, (float, int)):
         jitter = random.uniform(-0.003, 0.003)
@@ -115,12 +115,14 @@ def add_jitter_and_format(val):
         return f"{jittered:.4f}"
     return val
 
-# Fast simulation (change to True for real-time delays)
+# Fast simulation
+# Set to "true" if you want more realistiv typing speeds, although slows down content generation considerably
 simulate_real_time = False
 
-# Generate and save
+# Generate data
 data = generate_keystroke_data(text_to_type, typing_condition, wpm, simulate_real_time=simulate_real_time)
 
+# Save data
 csv_file = "keystroke_data.csv"
 with open(csv_file, "w", newline="") as f:
     writer = csv.writer(f)
