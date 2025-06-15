@@ -1,0 +1,6 @@
+pynput
+pandas
+scikit-learn
+joblib
+matplotlib
+seaborn
